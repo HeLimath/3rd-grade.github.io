@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>이차방정식 수행평가 뷰어</title>
+    <!-- Tailwind CSS (디자인을 위해 사용) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { margin: 0; overflow: hidden; }
+        /* 드래그 시 텍스트 선택 방지 */
+        .no-select { user-select: none; -webkit-user-select: none; }
+        /* 부드러운 확대/축소 애니메이션 */
+        #viewer-image { transition: transform 0.1s ease-out; cursor: grab; }
+        #viewer-image:active { cursor: grabbing; }
+    </style>
+</head>
+<body class="bg-gray-100 h-screen flex flex-col font-sans">
+
+    <!-- 상단 네비게이션 & 툴바 -->
+    <header class="bg-white shadow-md px-6 py-4 flex items-center justify-between z-10 select-none">
+        <div class="flex items-center space-x-2 text-gray-800 font-bold text-lg">
+            <span>📝 수학 평가지 뷰어</span>
+        </div>
+        
+        <!-- 페이지 탭 -->
+        <div class="flex bg-gray-100 p-1 rounded-lg">
+            <button id="tab1" onclick="setPage(1)" class="px-6 py-2 rounded-md text-sm font-bold bg-white shadow text-blue-600 transition-colors">
+                1 페이지
+            </button>
+            <button id="tab2" onclick="setPage(2)" class="px-6 py-2 rounded-md text-sm font-bold text-gray-500 hover:text-gray-700 transition-colors">
+                2 페이지
+            </button>
+        </div>
+
+        <!-- 확대/축소 컨트롤 -->
+        <div class="flex items-center space-x-1">
+            <button onclick="zoomOut()" class="p-2 text-gray-600 hover:bg-gray-200 rounded-full" title="축소">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg>
+            </button>
+            <span id="zoom-text" class="text-sm font-medium text-gray-600 w-12 text-center">100%</span>
+            <button onclick="zoomIn()" class="p-2 text-gray-600 hover:bg-gray-200 rounded-full" title="확대">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg>
+            </button>
+            <div class="w-px h-6 bg-gray-300 mx-2"></div>
+            <button onclick="resetZoom()" class="p-2 text-gray-600 hover:bg-gray-200 rounded-full" title="원래 크기">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path></svg>
+            </button>
+        </div>
+    </header>
+
+    <!-- 이미지 뷰어 영역 -->
+    <main id="main-area" class="flex-1 relative flex items-center justify-center bg-[#e5e7eb] overflow-hidden">
+        <img 
+            id="viewer-image" 
+            src="page1.png" 
+            alt="수학 문제지" 
+            class="max-w-full max-h-[85vh] object-contain bg-white shadow-2xl no-select pointer-events-auto"
+            draggable="false"
+        >
+    </main>
+
+    <!-- 하단 안내 -->
+    <footer class="bg-white border-t border-gray-300 p-2 text-center text-xs text-gray-500 z-10 select-none">
+        💡 마우스 휠 스크롤로 확대/축소하고, 클릭 후 드래그하여 이미지를 이동할 수 있습니다. (수정 불가 / 읽기 전용 모드)
+    </footer>
+
+    <!-- 기능 구현 자바스크립트 -->
+    <script>
+        const img = document.getElementById('viewer-image');
+        const mainArea = document.getElementById('main-area');
+        const zoomText = document.getElementById('zoom-text');
+        const tab1 = document.getElementById('tab1');
+        const tab2 = document.getElementById('tab2');
+
+        let scale = 1;
+        let translateX = 0;
+        let translateY = 0;
+        let isDragging = false;
+        let startX, startY;
+
+        // 이미지 경로 (같은 폴더에 page1.png, page2.png 가 있어야 합니다)
+        const images = {
+            1: 'page1.png',
+            2: 'page2.png'
+        };
+
+        // 화면 갱신 함수
+        function updateTransform() {
+            img.style.transform = `translate(${translateX}px, ${translateY}px) scale(${scale})`;
+            zoomText.innerText = Math.round(scale * 100) + '%';
+        }
+
+        // 탭 변경 함수
+        function setPage(pageNum) {
+            img.src = images[pageNum];
+            
+            // 페이지 전환 시 확대 및 위치 초기화
+            scale = 1;
+            translateX = 0;
+            translateY = 0;
+            updateTransform();
+
+            // 탭 디자인 변경
+            if(pageNum === 1) {
+                tab1.className = "px-6 py-2 rounded-md text-sm font-bold bg-white shadow text-blue-600 transition-colors";
+                tab2.className = "px-6 py-2 rounded-md text-sm font-bold text-gray-500 hover:text-gray-700 transition-colors";
+            } else {
+                tab2.className = "px-6 py-2 rounded-md text-sm font-bold bg-white shadow text-blue-600 transition-colors";
+                tab1.className = "px-6 py-2 rounded-md text-sm font-bold text-gray-500 hover:text-gray-700 transition-colors";
+            }
+        }
+
+        // 확대/축소 기능
+        function zoomIn() { scale = Math.min(scale + 0.25, 4); updateTransform(); }
+        function zoomOut() { scale = Math.max(scale - 0.25, 0.5); updateTransform(); }
+        function resetZoom() { scale = 1; translateX = 0; translateY = 0; updateTransform(); }
+
+        // 마우스 휠 이벤트 (스크롤로 확대/축소)
+        mainArea.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            if (e.deltaY < 0) zoomIn();
+            else zoomOut();
+        }, { passive: false });
+
+        // 마우스 드래그 (이동) 기능
+        img.addEventListener('mousedown', (e) => {
+            isDragging = true;
+            // 현재 스케일이 적용된 상태에서의 보정값을 계산하여 시작점 지정
+            startX = e.clientX - translateX;
+            startY = e.clientY - translateY;
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+            translateX = e.clientX - startX;
+            translateY = e.clientY - startY;
+            updateTransform();
+        });
+
+        window.addEventListener('mouseup', () => { isDragging = false; });
+        window.addEventListener('mouseleave', () => { isDragging = false; });
+    </script>
+</body>
+</html>
